@@ -17,7 +17,7 @@ may change many times in different ways over the course of its development!*
 Black Rook Commons 2.16.0+  
 [https://github.com/BlackRookSoftware/Common](https://github.com/BlackRookSoftware/Common)
 
-Black Rook OpenAL 
+Black Rook OpenAL  
 [https://github.com/BlackRookSoftware/SoundOAL](https://github.com/BlackRookSoftware/SoundOAL)
 
 ### Introduction
