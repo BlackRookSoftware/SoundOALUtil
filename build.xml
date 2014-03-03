@@ -19,7 +19,7 @@
 	<property name="oal.lib" value="${dev.base}/SoundOAL/bin" />
 
 	<!-- Project Info -->
-	<property name="project.archive" value="blackrook-oal" />
+	<property name="project.archive" value="blackrook-oalutil" />
 	<property name="project.javadoc.title" value="Black Rook OpenAL Utilities" />
 	<property name="project.classpath" value="${common.lib}${S}${oal.lib}" />
 	<property name="project.javadoc.packages" value="
