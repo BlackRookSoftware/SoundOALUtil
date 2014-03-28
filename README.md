@@ -9,8 +9,8 @@ Copyright (c) 2014 Black Rook Software. All rights reserved.
 This library requires the use of third-party libraries. Black Rook Software 
 is not responsible for issues regarding these libraries.
 
-*This library is currently in **EXPERIMENTAL** status. This library's API
-may change many times in different ways over the course of its development!* 
+This library is currently in **EXPERIMENTAL** status. This library's API
+may change many times in different ways over the course of its development!
 
 ### Required Libraries
 
