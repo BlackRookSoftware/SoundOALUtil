@@ -1,7 +1,7 @@
 # Black Rook OpenAL Utility
 
 Copyright (c) 2014 Black Rook Software. All rights reserved.  
-[http://blackrooksoftware.com/projects.htm?name=oalutil](http://blackrooksoftware.com/projects.htm?name=oalutil)  
+[http://blackrooksoftware.com/projects.htm?name=soundoalutil](http://blackrooksoftware.com/projects.htm?name=soundoalutil)  
 [https://github.com/BlackRookSoftware/SoundOALUtil](https://github.com/BlackRookSoftware/SoundOALUtil)
 
 ### NOTICE
