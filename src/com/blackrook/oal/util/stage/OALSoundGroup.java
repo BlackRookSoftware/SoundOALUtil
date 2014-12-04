@@ -31,7 +31,12 @@ public class OALSoundGroup
 
 	public OALSoundGroup()
 	{
-		parent = null;
+		this(null);
+	}
+	
+	public OALSoundGroup(OALSoundGroup parent)
+	{
+		this.parent = parent;
 		gainBias = 1f;
 		pitchBias = 1f;
 		maxVoices = 0;

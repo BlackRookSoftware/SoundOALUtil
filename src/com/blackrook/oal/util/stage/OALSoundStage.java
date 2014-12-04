@@ -18,7 +18,6 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
-import com.blackrook.commons.hash.CaseInsensitiveHashMap;
 import com.blackrook.commons.hash.HashMap;
 import com.blackrook.commons.hash.HashedQueueMap;
 import com.blackrook.commons.linkedlist.Queue;
@@ -75,8 +74,6 @@ public class OALSoundStage
 	private List<OALSoundStageListener> listeners;
 	/** List of sound stage update hooks. */
 	private List<OALSoundStageUpdateHook> updateHooks;
-	/** List of sound stage groups. */
-	private CaseInsensitiveHashMap<OALSoundGroup> soundGroups; 
 
 	// Control Queues ===========================
 
@@ -206,7 +203,6 @@ public class OALSoundStage
 		bufferCache = new OALBufferCache(maxCacheBytes);
 		listeners = new List<OALSoundStageListener>(2);
 		updateHooks = new List<OALSoundStageUpdateHook>(2);
-		soundGroups = new CaseInsensitiveHashMap<OALSoundGroup>(5);
 		objectsToVoice = new HashedQueueMap<OALSoundStageObject, Voice>(numVoices);
 		soundsToVoice = new HashedQueueMap<OALSoundResource, Voice>(numVoices);
 		groupsToVoice = new HashedQueueMap<OALSoundGroup, Voice>(numVoices);
@@ -302,20 +298,6 @@ public class OALSoundStage
 	}
 	
 	/**
-	 * Adds a sound group to this stage.
-	 * All sounds that use this group name get the layer's
-	 * attributes applied to this object.
-	 * Group names are retrieved and stored by a case-insensitive lookup.
-	 */
-	public void setGroup(String name, OALSoundGroup group)
-	{
-		if (group == null)
-			soundGroups.removeUsingKey(name);
-		else
-			soundGroups.put(name, group);
-	}
-
-	/**
 	 * Sets how the source is positioned if the sound it is playing is not panned. 
 	 */
 	public void setNoPanType(NoPanType noPanType)
@@ -410,23 +392,23 @@ public class OALSoundStage
 	/**
 	 * Plays a sound resource from no particular object at position (0,0,0).
 	 * @param resource the resource to play.
-	 * @param groupName the category id to use to influence playback characteristics.
+	 * @param group the group to use to influence playback characteristics.
 	 */
-	public void play(OALSoundResource resource, String groupName)
+	public void play(OALSoundResource resource, OALSoundGroup group)
 	{
-		play(resource, 0, 0, 0, groupName, resource.getInitGain(), resource.getInitPitch());
+		play(resource, 0, 0, 0, group, resource.getInitGain(), resource.getInitPitch());
 	}
 	
 	/**
 	 * Plays a sound resource from no particular object at position (0,0,0).
 	 * @param resource the resource to play.
-	 * @param groupName the group name to use to influence playback characteristics.
+	 * @param group the group to use to influence playback characteristics.
 	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
 	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
-	public void play(OALSoundResource resource, String groupName, float gain, float pitch)
+	public void play(OALSoundResource resource, OALSoundGroup group, float gain, float pitch)
 	{
-		play(resource, 0, 0, 0, groupName, gain, pitch);
+		play(resource, 0, 0, 0, group, gain, pitch);
 	}
 	
 	/**
@@ -435,12 +417,11 @@ public class OALSoundStage
 	 * @param posX the position, X-coordinate, to play the sound from.
 	 * @param posY the position, Y-coordinate, to play the sound from.
 	 * @param posZ the position, Z-coordinate, to play the sound from.
-	 * @param groupName the group name to use to influence playback characteristics.
+	 * @param group the group to use to influence playback characteristics.
 	 */
-	public void play(OALSoundResource resource, 
-		float posX, float posY, float posZ, String groupName)
+	public void play(OALSoundResource resource, float posX, float posY, float posZ, OALSoundGroup group)
 	{
-		play(resource, posX, posY, posZ, groupName, resource.getInitGain(), resource.getInitPitch());
+		play(resource, posX, posY, posZ, group, resource.getInitGain(), resource.getInitPitch());
 	}
 	
 	/**
@@ -449,19 +430,19 @@ public class OALSoundStage
 	 * @param posX the position, X-coordinate, to play the sound from.
 	 * @param posY the position, Y-coordinate, to play the sound from.
 	 * @param posZ the position, Z-coordinate, to play the sound from.
-	 * @param groupName the group name to use to influence playback characteristics.
+	 * @param group the group to use to influence playback characteristics.
 	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
 	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
 	public void play(OALSoundResource resource, 
 		float posX, float posY, float posZ,
-		String groupName, float gain, float pitch)
+		OALSoundGroup group, float gain, float pitch)
 	{
 		StageEvent sn = new StageEvent();
 		sn.type = StageEvent.Type.PLAY;
 		sn.resource = resource;
 		sn.object = new ObjectSurrogate(posX, posY, posZ);
-		sn.group = soundGroups.get(groupName);
+		sn.group = group;
 		sn.gain = gain;
 		sn.pitch = pitch;
 		enqueueEvent(sn);
@@ -486,36 +467,36 @@ public class OALSoundStage
 	 * it is stopped and freed before a new voice is reallocated.
 	 * Uses resource's initial gain and pitch.
 	 * @param resource	the resource to play.
-	 * @param object	the object source.
-	 * @param groupName 	the group id to use to influence playback characteristics.
+	 * @param object the object source.
+	 * @param group the group to use to influence playback characteristics.
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, String groupName)
+	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group)
 	{
-		play(resource, object, 0, groupName, resource.getInitGain(), resource.getInitPitch());
+		play(resource, object, group, 0, resource.getInitGain(), resource.getInitPitch());
 	}
 	
 	/**
 	 * Plays a sound resource from an object.
 	 * If the object's specified channel is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
-	 * @param resource	the resource to play.
-	 * @param object	the object source.
-	 * @param channel	the object's virtual channel.
-	 * @param groupName the group id to use to influence playback characteristics.
+	 * @param resource the resource to play.
+	 * @param object the object source.
+	 * @param group the group to use to influence playback characteristics.
+	 * @param channel the object's virtual channel.
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, int channel, String groupName)
+	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group, int channel)
 	{
-		play(resource, object, channel, groupName, resource.getInitGain(), resource.getInitPitch());
+		play(resource, object, group, channel, resource.getInitGain(), resource.getInitPitch());
 	}
 
 	/**
 	 * Plays a sound resource from an object's default channel (0).
 	 * If the object's channel 0 is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
-	 * @param resource	the resource to play.
-	 * @param object	the object source.
-	 * @param gain		the initial gain (overrides resource's initial gain, but not variance).
-	 * @param pitch		the initial pitch (overrides resource's initial pitch, but not variance).
+	 * @param resource the resource to play.
+	 * @param object the object source.
+	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
+	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
 	public void play(OALSoundResource resource, OALSoundStageObject object, float gain, float pitch)
 	{
@@ -527,34 +508,34 @@ public class OALSoundStage
 	 * If the object's specified channel is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
 	 * @param resource	the resource to play.
-	 * @param object	the object source.
-	 * @param channel	the object's virtual channel.
-	 * @param gain		the initial gain (overrides resource's initial gain, but not variance).
-	 * @param pitch		the initial pitch (overrides resource's initial pitch, but not variance).
+	 * @param object the object source.
+	 * @param channel the object's virtual channel.
+	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
+	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
 	public void play(OALSoundResource resource, OALSoundStageObject object, int channel, float gain, float pitch)
 	{
-		play(resource, object, channel, null, gain, pitch);
+		play(resource, object, null, channel, gain, pitch);
 	}
 
 	/**
 	 * Plays a sound resource from an object.
 	 * If the object's specified channel is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
-	 * @param resource		the resource to play.
-	 * @param object		the object source.
-	 * @param channel		the object's virtual channel.
-	 * @param groupName 	the group id to use to influence playback characteristics.
-	 * @param gain			the initial gain (overrides resource's initial gain, but not variance).
-	 * @param pitch			the initial pitch (overrides resource's initial pitch, but not variance).
+	 * @param resource the resource to play.
+	 * @param object the object source.
+	 * @param group the group to use to influence playback characteristics.
+	 * @param channel the object's virtual channel.
+	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
+	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, int channel, String groupName, float gain, float pitch)
+	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group, int channel, float gain, float pitch)
 	{
 		StageEvent sn = new StageEvent();
 		sn.type = StageEvent.Type.PLAY;
 		sn.resource = resource;
 		sn.object = object;
-		sn.group = soundGroups.get(groupName);
+		sn.group = group;
 		sn.channel = channel;
 		sn.gain = gain;
 		sn.pitch = pitch;
@@ -601,13 +582,13 @@ public class OALSoundStage
 
 	/**
 	 * Stops all sound resources playing in a group.
-	 * @param groupName	the group to stop.
+	 * @param group the group to stop.
 	 */
-	public void stopGroup(String groupName)
+	public void stopGroup(OALSoundGroup group)
 	{
 		StageEvent sn = new StageEvent();
 		sn.type = StageEvent.Type.STOP;
-		sn.group = soundGroups.get(groupName);
+		sn.group = group;
 		enqueueEvent(sn);
 	}
 
