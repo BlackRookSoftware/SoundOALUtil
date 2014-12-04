@@ -386,7 +386,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource)
 	{
-		play(resource, 0, 0, 0, null, resource.getInitGain(), resource.getInitPitch());
+		play(resource, 0, 0, 0, null, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -396,7 +396,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundGroup group)
 	{
-		play(resource, 0, 0, 0, group, resource.getInitGain(), resource.getInitPitch());
+		play(resource, 0, 0, 0, group, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -421,7 +421,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, float posX, float posY, float posZ, OALSoundGroup group)
 	{
-		play(resource, posX, posY, posZ, group, resource.getInitGain(), resource.getInitPitch());
+		play(resource, posX, posY, posZ, group, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -458,7 +458,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundStageObject object)
 	{
-		play(resource, object, 0, resource.getInitGain(), resource.getInitPitch());
+		play(resource, object, 0, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -472,7 +472,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group)
 	{
-		play(resource, object, group, 0, resource.getInitGain(), resource.getInitPitch());
+		play(resource, object, group, 0, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -486,7 +486,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group, int channel)
 	{
-		play(resource, object, group, channel, resource.getInitGain(), resource.getInitPitch());
+		play(resource, object, group, channel, resource.getGain(), resource.getPitch());
 	}
 
 	/**
@@ -1162,7 +1162,7 @@ public class OALSoundStage
 			return true; 
 		}
 		// voice not allocated
-		else if (event.resource.mustBePlayed())
+		else if (event.resource.isAlwaysPlayed())
 			return false;
 		
 		return true;
@@ -1191,7 +1191,7 @@ public class OALSoundStage
 			if (count < event.resource.getLimit())
 				return false;
 			
-			if (event.resource.limitStopsOldestSound())
+			if (event.resource.getStopsOldestSound())
 			{
 				voice = soundsToVoice.dequeue(event.resource);
 				removeVoiceForObject(voice.object, voice);

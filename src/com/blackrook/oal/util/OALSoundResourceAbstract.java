@@ -243,13 +243,13 @@ public abstract class OALSoundResourceAbstract implements OALSoundResource
 	}
 
 	@Override
-	public float getInitGain()
+	public float getGain()
 	{
 		return initGain;
 	}
 
 	@Override
-	public float getInitPitch()
+	public float getPitch()
 	{
 		return initPitch;
 	}
@@ -297,13 +297,13 @@ public abstract class OALSoundResourceAbstract implements OALSoundResource
 	}
 
 	@Override
-	public boolean limitStopsOldestSound()
+	public boolean getStopsOldestSound()
 	{
 		return limitStop;
 	}
 
 	@Override
-	public boolean mustBePlayed()
+	public boolean isAlwaysPlayed()
 	{
 		return mustBePlayed;
 	}

@@ -27,12 +27,12 @@ public interface OALSoundResource
 	/**
 	 * Gets this sound's initial pitch.
 	 */
-	public float getInitPitch();
+	public float getPitch();
 
 	/**
 	 * Gets this sound's initial gain.
 	 */
-	public float getInitGain();
+	public float getGain();
 
 	/**
 	 * Gets this sound's pitch variance (when the sound is played, the pitch is randomly assigned within this range).
@@ -122,12 +122,12 @@ public interface OALSoundResource
 	 * will the additional sound be played with the older of the played sounds getting
 	 * stopped?
 	 */
-	public boolean limitStopsOldestSound();
+	public boolean getStopsOldestSound();
 
 	/**
 	 * Must this sound be played, if it is in listenable range,
 	 * even when no voices are available? If so, it will play once a voice is free.
 	 */
-	public boolean mustBePlayed();
+	public boolean isAlwaysPlayed();
 
 }
