@@ -49,8 +49,21 @@ import com.blackrook.oal.util.OALSoundResource;
  * Please note that "effects" are not supported yet.
  * @author Matthew Tropiano
  */
-public class OALSoundStage
+public class OALSoundStage<T extends Object>
 {
+	/**
+	 * Panning type for event type.
+	 */
+	public static enum EventType
+	{
+		PLAY,
+		STOP,
+		STOP_ALL,
+		PAUSE,
+		RESUME,
+		PRECACHE
+	}
+
 	/**
 	 * Panning type for sources with sounds that are not panned.
 	 */
@@ -64,6 +77,8 @@ public class OALSoundStage
 	
 	/** Reference to Sound System. */
 	private OALSystem soundSystemRef;
+	/** Reference to model. */
+	private OALSoundStageObjectModel<T> soundModel;
 	
 	// Virtual Layers =============================
 	
@@ -122,10 +137,10 @@ public class OALSoundStage
 	
 	/** Sound to voice table. */
 	private HashedQueueMap<OALSoundResource, Voice> soundsToVoice;
-	/** Object to voice table. */
-	private HashedQueueMap<OALSoundStageObject, Voice> objectsToVoice; 
 	/** Group to voice table. */
 	private HashedQueueMap<OALSoundGroup, Voice> groupsToVoice; 
+	/** Object to voice table. */
+	private HashedQueueMap<T, Voice> objectsToVoice; 
 	
 	/** Is this paused? */
 	private boolean allPaused;
@@ -193,19 +208,20 @@ public class OALSoundStage
 	 * @param maxCacheBytes	the maximum amount of bytes used for buffer caching (0 or less = no limit).
 	 * @throws IllegalArgumentException if numVoices is less than 1.
 	 */
-	public OALSoundStage(OALSystem sys, int numVoices, int maxCacheBytes)
+	public OALSoundStage(OALSystem sys, OALSoundStageObjectModel<T> model, int numVoices, int maxCacheBytes)
 	{
 		if (numVoices < 1)
 			throw new IllegalArgumentException("The number of voices can't be less than 1.");
 		
 		random = new Random();
 		soundSystemRef = sys;
+		soundModel = model;
 		bufferCache = new OALBufferCache(maxCacheBytes);
 		listeners = new List<OALSoundStageListener>(2);
 		updateHooks = new List<OALSoundStageUpdateHook>(2);
-		objectsToVoice = new HashedQueueMap<OALSoundStageObject, Voice>(numVoices);
 		soundsToVoice = new HashedQueueMap<OALSoundResource, Voice>(numVoices);
 		groupsToVoice = new HashedQueueMap<OALSoundGroup, Voice>(numVoices);
+		objectsToVoice = new HashedQueueMap<T, Voice>(numVoices);
 		
 		primedStreams = new HashMap<OALSoundResource, SourceStreamer>(3);
 		streams = new Queue<SourceStreamer>();
@@ -386,7 +402,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource)
 	{
-		play(resource, 0, 0, 0, null, resource.getGain(), resource.getPitch());
+		play(resource, null, null, 0, 1f, 1f);
 	}
 	
 	/**
@@ -396,7 +412,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundGroup group)
 	{
-		play(resource, 0, 0, 0, group, resource.getGain(), resource.getPitch());
+		play(resource, group, null, 0, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -408,44 +424,7 @@ public class OALSoundStage
 	 */
 	public void play(OALSoundResource resource, OALSoundGroup group, float gain, float pitch)
 	{
-		play(resource, 0, 0, 0, group, gain, pitch);
-	}
-	
-	/**
-	 * Plays a sound resource from no particular object.
-	 * @param resource the resource to play.
-	 * @param posX the position, X-coordinate, to play the sound from.
-	 * @param posY the position, Y-coordinate, to play the sound from.
-	 * @param posZ the position, Z-coordinate, to play the sound from.
-	 * @param group the group to use to influence playback characteristics.
-	 */
-	public void play(OALSoundResource resource, float posX, float posY, float posZ, OALSoundGroup group)
-	{
-		play(resource, posX, posY, posZ, group, resource.getGain(), resource.getPitch());
-	}
-	
-	/**
-	 * Plays a sound resource from no particular object.
-	 * @param resource the resource to play.
-	 * @param posX the position, X-coordinate, to play the sound from.
-	 * @param posY the position, Y-coordinate, to play the sound from.
-	 * @param posZ the position, Z-coordinate, to play the sound from.
-	 * @param group the group to use to influence playback characteristics.
-	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
-	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
-	 */
-	public void play(OALSoundResource resource, 
-		float posX, float posY, float posZ,
-		OALSoundGroup group, float gain, float pitch)
-	{
-		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.PLAY;
-		sn.resource = resource;
-		sn.object = new ObjectSurrogate(posX, posY, posZ);
-		sn.group = group;
-		sn.gain = gain;
-		sn.pitch = pitch;
-		enqueueEvent(sn);
+		play(resource, group, null, 0, gain, pitch);
 	}
 	
 	/**
@@ -456,9 +435,9 @@ public class OALSoundStage
 	 * @param resource	the resource to play.
 	 * @param object	the object source.
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object)
+	public void play(OALSoundResource resource, T object)
 	{
-		play(resource, object, 0, resource.getGain(), resource.getPitch());
+		play(resource, null, object, 0, 1f, 1f);
 	}
 	
 	/**
@@ -470,9 +449,9 @@ public class OALSoundStage
 	 * @param object the object source.
 	 * @param group the group to use to influence playback characteristics.
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group)
+	public void play(OALSoundResource resource, OALSoundGroup group, T object)
 	{
-		play(resource, object, group, 0, resource.getGain(), resource.getPitch());
+		play(resource, group, object, 0, resource.getGain(), resource.getPitch());
 	}
 	
 	/**
@@ -480,13 +459,13 @@ public class OALSoundStage
 	 * If the object's specified channel is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
 	 * @param resource the resource to play.
-	 * @param object the object source.
 	 * @param group the group to use to influence playback characteristics.
+	 * @param object the object source.
 	 * @param channel the object's virtual channel.
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group, int channel)
+	public void play(OALSoundResource resource, OALSoundGroup group, T object, int channel)
 	{
-		play(resource, object, group, channel, resource.getGain(), resource.getPitch());
+		play(resource, group, object, channel, resource.getGain(), resource.getPitch());
 	}
 
 	/**
@@ -498,9 +477,9 @@ public class OALSoundStage
 	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
 	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, float gain, float pitch)
+	public void play(OALSoundResource resource, T object, float gain, float pitch)
 	{
-		play(resource, object, 0, gain, pitch);
+		play(resource, null, object, 0, gain, pitch);
 	}
 	
 	/**
@@ -513,9 +492,24 @@ public class OALSoundStage
 	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
 	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, int channel, float gain, float pitch)
+	public void play(OALSoundResource resource, T object, int channel, float gain, float pitch)
 	{
-		play(resource, object, null, channel, gain, pitch);
+		play(resource, null, object, channel, gain, pitch);
+	}
+
+	/**
+	 * Plays a sound resource from an object.
+	 * If the object's specified channel is already bound to a playing voice,
+	 * it is stopped and freed before a new voice is reallocated.
+	 * @param resource	the resource to play.
+	 * @param group the group to use to influence playback characteristics.
+	 * @param object the object source.
+	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
+	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
+	 */
+	public void play(OALSoundResource resource, OALSoundGroup group, T object, float gain, float pitch)
+	{
+		play(resource, group, object, 0, gain, pitch);
 	}
 
 	/**
@@ -523,16 +517,16 @@ public class OALSoundStage
 	 * If the object's specified channel is already bound to a playing voice,
 	 * it is stopped and freed before a new voice is reallocated.
 	 * @param resource the resource to play.
-	 * @param object the object source.
 	 * @param group the group to use to influence playback characteristics.
+	 * @param object the object source.
 	 * @param channel the object's virtual channel.
 	 * @param gain the initial gain (overrides resource's initial gain, but not variance).
 	 * @param pitch the initial pitch (overrides resource's initial pitch, but not variance).
 	 */
-	public void play(OALSoundResource resource, OALSoundStageObject object, OALSoundGroup group, int channel, float gain, float pitch)
+	public void play(OALSoundResource resource, OALSoundGroup group, T object, int channel, float gain, float pitch)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.PLAY;
+		sn.type = EventType.PLAY;
 		sn.resource = resource;
 		sn.object = object;
 		sn.group = group;
@@ -549,7 +543,7 @@ public class OALSoundStage
 	public void stopSound(OALSoundResource resource)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.STOP;
+		sn.type = EventType.STOP;
 		sn.resource = resource;
 		enqueueEvent(sn);
 	}
@@ -558,10 +552,10 @@ public class OALSoundStage
 	 * Stops a sound resource playing on an object's first channel (0).
 	 * @param object	the object source.
 	 */
-	public void stopObject(OALSoundStageObject object)
+	public void stopObject(T object)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.STOP;
+		sn.type = EventType.STOP;
 		sn.object = object;
 		enqueueEvent(sn);
 	}
@@ -571,10 +565,10 @@ public class OALSoundStage
 	 * @param object	the object source.
 	 * @param channel	the object's virtual channel.
 	 */
-	public void stopObject(OALSoundStageObject object, int channel)
+	public void stopObject(T object, int channel)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.STOP;
+		sn.type = EventType.STOP;
 		sn.object = object;
 		sn.channel = channel;
 		enqueueEvent(sn);
@@ -587,7 +581,7 @@ public class OALSoundStage
 	public void stopGroup(OALSoundGroup group)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.STOP;
+		sn.type = EventType.STOP;
 		sn.group = group;
 		enqueueEvent(sn);
 	}
@@ -598,17 +592,17 @@ public class OALSoundStage
 	public void stopAll()
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.STOP_ALL;
+		sn.type = EventType.STOP_ALL;
 		enqueueEvent(sn);
 	}
 
 	/**
 	 * Pauses playback of all sounds on an object.
 	 */
-	public void pause(OALSoundStageObject object)
+	public void pause(T object)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.PAUSE;
+		sn.type = EventType.PAUSE;
 		sn.object = object;
 		enqueueEvent(sn);
 	}
@@ -619,7 +613,7 @@ public class OALSoundStage
 	public void pauseAll()
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.PAUSE;
+		sn.type = EventType.PAUSE;
 		enqueueEvent(sn);
 	}
 	
@@ -634,10 +628,10 @@ public class OALSoundStage
 	/**
 	 * Resumes playback of all sounds on an object.
 	 */
-	public void resume(OALSoundStageObject object)
+	public void resume(T object)
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.RESUME;
+		sn.type = EventType.RESUME;
 		sn.object = object;
 		enqueueEvent(sn);
 	}
@@ -648,7 +642,7 @@ public class OALSoundStage
 	public void resumeAll()
 	{
 		StageEvent sn = new StageEvent();
-		sn.type = StageEvent.Type.RESUME;
+		sn.type = EventType.RESUME;
 		enqueueEvent(sn);
 	}
 	
@@ -858,7 +852,7 @@ public class OALSoundStage
 	/**
 	 * Returns the amount of voices playing connected to a specific object.
 	 */
-	public int getVoiceCountForObject(OALSoundStageObject object)
+	public int getVoiceCountForObject(T object)
 	{
 		return objectsToVoice.containsKey(object) ? objectsToVoice.get(object).size() : 0;
 	}
@@ -914,22 +908,22 @@ public class OALSoundStage
 	/**
 	 * Returns the distance between the listener and an object, according to category rules.
 	 */
-	public float getDistance(OALSoundGroup cat, OALSoundStageObject object)
+	public float getDistance(OALSoundGroup cat, T object)
 	{
 		double x,y,z;
 		if (cat.isRelative())
 		{
-			x = object.getSoundPositionX();
-			y = object.getSoundPositionY();
-			z = object.getSoundPositionZ();
+			x = soundModel.getSoundPositionX(object);
+			y = soundModel.getSoundPositionY(object);
+			z = soundModel.getSoundPositionZ(object);
 		}
 		else
 		{
 			OALListener listener = soundSystemRef.getListener();
 			Point3F p = listener.getPosition();
-			x = object.getSoundPositionX() - p.x;
-			y = object.getSoundPositionY() - p.y;
-			z = object.getSoundPositionZ() - p.z;
+			x = soundModel.getSoundPositionX(object) - p.x;
+			y = soundModel.getSoundPositionY(object) - p.y;
+			z = soundModel.getSoundPositionZ(object) - p.z;
 		}
 		return (float)Math.sqrt(x*x + y*y + z*z);
 	}
@@ -1281,7 +1275,7 @@ public class OALSoundStage
 	 * Gets the voice for an object and channel that is currently playing.
 	 * Returns null if it is not found.
 	 */
-	protected Voice getVoiceForObject(OALSoundStageObject object, Integer channel)
+	protected Voice getVoiceForObject(T object, Integer channel)
 	{
 		if (channel == null)
 			return null;
@@ -1370,7 +1364,7 @@ public class OALSoundStage
 	 * Removes the object to voice binding.
 	 * Returns false if it is not found.
 	 */
-	protected boolean removeVoiceForObject(OALSoundStageObject object, Voice voice)
+	protected boolean removeVoiceForObject(T object, Voice voice)
 	{
 		if (object != null)
 			return objectsToVoice.removeValue(object, voice);
@@ -1381,7 +1375,7 @@ public class OALSoundStage
 	 * Removes the object and channel binding for a voice.
 	 * Returns null if it is not found.
 	 */
-	protected Voice removeVoiceForObjectAndChannel(OALSoundStageObject object, int channel)
+	protected Voice removeVoiceForObjectAndChannel(T object, int channel)
 	{
 		Queue<Voice> list = objectsToVoice.get(object);
 		if (list == null)
@@ -1613,6 +1607,88 @@ public class OALSoundStage
 	}
 
 	/**
+	 * Sound events for synchronizing changes in the sound system.
+	 */
+	protected class StageEvent
+	{		
+		public EventType type;
+		public OALSoundResource resource;
+		public OALSoundGroup group;
+		public T object;
+		public Integer channel;
+		public float gain;
+		public float pitch;
+		
+		public StageEvent()
+		{ 
+			type = null;
+			resource = null;
+			group = null;
+			object = null;
+			channel = null;
+			gain = 1.0f;
+			pitch = 1.0f;
+		}
+		
+		// for debugging purposes.
+		@Override
+		public String toString()
+		{
+			StringBuilder sb = new StringBuilder();
+			sb.append("StageEvent");
+			switch (type)
+			{
+				case PLAY:
+					sb.append(" PLAY ");
+					sb.append(object.toString());
+					sb.append(' ');
+					sb.append(resource.toString());
+					sb.append(' ');
+					sb.append(channel);
+					sb.append(' ');
+					sb.append(gain);
+					sb.append(' ');
+					sb.append(pitch);
+					break;
+				case STOP:
+					sb.append(" STOP ");
+					sb.append(object.toString());
+					sb.append(' ');
+					sb.append(channel);
+					break;
+				case STOP_ALL:
+					sb.append(" STOP ALL ");
+					if (resource != null)
+						sb.append(resource.toString());
+					break;
+				case PAUSE:
+					sb.append(" PAUSE");
+					break;
+				case RESUME:
+					sb.append(" RESUME");
+					break;
+				case PRECACHE:
+					sb.append(" PRECACHE ");
+					sb.append(resource.toString());
+					break;
+				/*
+				case EFFECT_APPLY:
+					sb.append(" APPLY EFFECT ");
+					break;
+				case EFFECT_REMOVE:
+					sb.append(" REMOVE EFFECT ");
+					break;
+					*/
+				default:
+					sb.append(" MISC");
+					break;
+			}
+			return sb.toString();
+		}
+		
+	}
+
+	/**
 	 * Virtual voices.
 	 */
 	protected class Voice
@@ -1626,10 +1702,10 @@ public class OALSoundStage
 		OALSource source;
 		/** Voice's sound resource link (sound being played back). */
 		OALSoundResource sound;
-		/** The object that is the source of the playback. */
-		OALSoundStageObject object;
 		/** The group that this sound stage is a part of. */
 		OALSoundGroup group;
+		/** The object that is the source of the playback. */
+		T object;
 		/** The virtual channel for this stage. */
 		Integer channel;
 		/** Initial intended pitch for the voice. */
@@ -1637,7 +1713,7 @@ public class OALSoundStage
 		/** Initial intended gain for the voice. */
 		float initGain;
 		
-		Voice(OALSource s, OALSoundStage stage)
+		Voice(OALSource s, OALSoundStage<T> stage)
 		{
 			source = s;
 			id = currentVoiceId++;
@@ -1686,10 +1762,10 @@ public class OALSoundStage
 						(getDistance(group, object) > sound.getPanningDeadzone()))
 					{
 						source.setPosition(
-							object.getSoundPositionX(),
-							object.getSoundPositionY(), 
-							object.getSoundPositionZ()
-							);
+							soundModel.getSoundPositionX(object),
+							soundModel.getSoundPositionY(object), 
+							soundModel.getSoundPositionZ(object)
+						);
 					}
 					else
 					{
@@ -1701,14 +1777,14 @@ public class OALSoundStage
 									listenerPosition.x, 
 									listenerPosition.y, 
 									listenerPosition.z
-									);
+								);
 								break;
 							case LISTENER_FRONT:
 								source.setPosition(
 									listenerPosition.x + listenerFacing.x, 
 									listenerPosition.y + listenerFacing.y, 
 									listenerPosition.z + listenerFacing.z
-									);
+								);
 								break;
 						}
 						else
@@ -1716,25 +1792,25 @@ public class OALSoundStage
 								listenerPosition.x, 
 								listenerPosition.y, 
 								listenerPosition.z
-								);
+							);
 					}
 
 					if (!sound.isNotDoppled())
 					{
 						source.setVelocity(
-							object.getSoundVelocityX(), 
-							object.getSoundVelocityY(), 
-							object.getSoundVelocityZ() 
-							);
+							soundModel.getSoundVelocityX(object),
+							soundModel.getSoundVelocityY(object), 
+							soundModel.getSoundVelocityZ(object)
+						);
 					}
 					
 					if (!sound.isNotDirected())
 					{
 						source.setDirection(
-							object.getSoundDirectionX(),
-							object.getSoundDirectionY(),
-							object.getSoundDirectionZ()
-							);
+							soundModel.getSoundDirectionX(object),
+							soundModel.getSoundDirectionY(object), 
+							soundModel.getSoundDirectionZ(object)
+						);
 					}
 				}
 			}
@@ -1756,10 +1832,11 @@ public class OALSoundStage
 		}
 
 		@Override
+		@SuppressWarnings({ "rawtypes", "unchecked" })
 		public boolean equals(Object obj)
 		{
-			if (obj instanceof Voice)
-				return equals((Voice)obj);
+			if (obj instanceof OALSoundStage.Voice)
+				return equals((OALSoundStage.Voice)obj);
 			else
 				return super.equals(obj);
 		}
@@ -1859,174 +1936,6 @@ public class OALSoundStage
 			return out;
 		}
 		
-	}
-
-	/**
-	 * Sound events for synchronizing changes in the sound system.
-	 */
-	protected static class StageEvent
-	{
-		private static enum Type
-		{
-			PLAY,
-			STOP,
-			STOP_ALL,
-			PAUSE,
-			RESUME,
-			PRECACHE
-		}
-		
-		public Type type;
-		public OALSoundStageObject object;
-		public OALSoundResource resource;
-		public OALSoundGroup group;
-		public Integer channel;
-		public float gain;
-		public float pitch;
-		
-		public StageEvent()
-		{ 
-			type = null;
-			object = null;
-			resource = null;
-			group = null;
-			channel = null;
-			gain = 1.0f;
-			pitch = 1.0f;
-		}
-		
-		// for debugging purposes.
-		@Override
-		public String toString()
-		{
-			StringBuilder sb = new StringBuilder();
-			sb.append("StageEvent");
-			switch (type)
-			{
-				case PLAY:
-					sb.append(" PLAY ");
-					sb.append(object.toString());
-					sb.append(' ');
-					sb.append(resource.toString());
-					sb.append(' ');
-					sb.append(channel);
-					sb.append(' ');
-					sb.append(gain);
-					sb.append(' ');
-					sb.append(pitch);
-					break;
-				case STOP:
-					sb.append(" STOP ");
-					sb.append(object.toString());
-					sb.append(' ');
-					sb.append(channel);
-					break;
-				case STOP_ALL:
-					sb.append(" STOP ALL ");
-					if (resource != null)
-						sb.append(resource.toString());
-					break;
-				case PAUSE:
-					sb.append(" PAUSE");
-					break;
-				case RESUME:
-					sb.append(" RESUME");
-					break;
-				case PRECACHE:
-					sb.append(" PRECACHE ");
-					sb.append(resource.toString());
-					break;
-				/*
-				case EFFECT_APPLY:
-					sb.append(" APPLY EFFECT ");
-					break;
-				case EFFECT_REMOVE:
-					sb.append(" REMOVE EFFECT ");
-					break;
-					*/
-				default:
-					sb.append(" MISC");
-					break;
-			}
-			return sb.toString();
-		}
-		
-	}
-	
-	/**
-	 * Object used for playing from no particular object.
-	 * @author Matthew Tropiano
-	 */
-	protected static class ObjectSurrogate implements OALSoundStageObject
-	{
-		private float x;
-		private float y;
-		private float z;
-		
-		/**
-		 * Creates a new object surrogate at a particular position for an category.
-		 */
-		public ObjectSurrogate(float x, float y, float z)
-		{
-			this.x = x;
-			this.y = y;
-			this.z = z;
-		}
-		
-		@Override
-		public float getSoundPositionX()
-		{
-			return x;
-		}
-
-		@Override
-		public float getSoundPositionY()
-		{
-			return y;
-		}
-
-		@Override
-		public float getSoundPositionZ()
-		{
-			return z;
-		}
-
-		@Override
-		public float getSoundVelocityX()
-		{
-			return 0;
-		}
-
-		@Override
-		public float getSoundVelocityY()
-		{
-			return 0;
-		}
-
-		@Override
-		public float getSoundVelocityZ()
-		{
-			return 0;
-		}
-
-		@Override
-		public float getSoundDirectionX()
-		{
-			return 0;
-		}
-
-		@Override
-		public float getSoundDirectionY()
-		{
-			return 0;
-		}
-
-		@Override
-		public float getSoundDirectionZ()
-		{
-			return 0;
-		}
-
 	}
 	
 }
