@@ -1205,7 +1205,8 @@ public class OALSoundStage<T extends Object>
 		}
 		else
 		{
-			voice = getVoiceForObject(event.object, event.channel);
+			if (event.object != null)
+				voice = getVoiceForObject(event.object, event.channel);
 			if (voice != null && voice.sound.getPriority() <= event.resource.getPriority())
 			{
 				removeVoiceForObjectAndChannel(voice.object, voice.channel);
@@ -1733,16 +1734,21 @@ public class OALSoundStage<T extends Object>
 			if (!sound.isStreaming() && sound.isLooping())
 				source.setLooping(true);
 			
-			group = object != null ? event.group : null;
+			group = event.group;
 
-			// position, velocity, and direction should still be 0.
+			source.setPosition(0f, 0f, 0f);
+			source.setVelocity(0f, 0f, 0f);
+			source.setDirection(0f, 0f, 0f);
 			source.setRelative(group == null || (group != null && group.isRelative()));
 			source.setRolloff(sound.getRolloff());
+			
 			source.setReferenceDistance(sound.getAttenuationDistance());
 			source.setMaxDistance(sound.getMaxAttenuationDistance());
+			
 			source.setInnerConeAngle(sound.getInnerConeAngle());
 			source.setOuterConeAngle(sound.getOuterConeAngle());
 			source.setOuterConeGain(sound.getOuterConeGain());
+			
 			update();
 		}
 		
