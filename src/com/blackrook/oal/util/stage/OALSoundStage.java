@@ -1833,7 +1833,7 @@ public class OALSoundStage<T extends Object>
 				if (sound != null)
 					fireSoundStoppedEvent(sound);
 			}
-			source.reInit();
+			source.reset();
 			source.rewind();
 		}
 
